@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.avishkar.stickpick"
+    namespace = "com.gunjan.stickpick"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.avishkar.stickpick"
+        applicationId = "com.gunjan.stickpick"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

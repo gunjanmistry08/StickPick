@@ -29,7 +29,7 @@
 
         <provider
             android:name=".whatsapp.StickerContentProvider"
-            android:authorities="com.avishkar.stickpick.stickercontentprovider"
+            android:authorities="com.gunjan.stickpick.stickercontentprovider"
             android:enabled="true"
             android:exported="true"
             android:readPermission="com.whatsapp.sticker.READ" />

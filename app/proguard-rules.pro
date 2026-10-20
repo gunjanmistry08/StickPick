@@ -1,7 +1,7 @@
 -keep class com.antonkarpenko.ffmpegkit.** { *; }
 -keep class com.google.gson.** { *; }
--keep class com.avishkar.stickpick.data.model.** { *; }
--keep class com.avishkar.stickpick.whatsapp.** { *; }
+-keep class com.gunjan.stickpick.data.model.** { *; }
+-keep class com.gunjan.stickpick.whatsapp.** { *; }
 -keepattributes Signature
 -keepattributes *Annotation*
 -dontwarn okhttp3.**
