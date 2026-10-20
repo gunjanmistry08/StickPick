@@ -38,6 +38,31 @@ object RustEngine {
     external fun convertTgs(inputBytes: ByteArray): ByteArray?
 
     /**
+     * Converts a Telegram .webm (VP9) video sticker to an animated WebP:
+     * - Canvas: Exactly 512x512 with transparent padding
+     * - Infinite loop (loop_count = 0)
+     * - Duration <= 3.0 seconds
+     * - File size <= 500 KB
+     *
+     * Returns null if conversion failed.
+     */
+    external fun convertWebm(inputBytes: ByteArray): ByteArray?
+
+    /**
+     * Convenience helper to convert a .webm video file to an animated WebP file.
+     */
+    fun convertWebmFile(inputFile: File, outputFile: File): Boolean {
+        return try {
+            val bytes = inputFile.readBytes()
+            val webpBytes = convertWebm(bytes) ?: return false
+            outputFile.writeBytes(webpBytes)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
      * Convenience helper to convert a .tgs file to an animated WebP file.
      */
     fun convertTgsFile(inputFile: File, outputFile: File): Boolean {

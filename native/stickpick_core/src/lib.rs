@@ -4,7 +4,9 @@ use image::{GenericImage, ImageReader, Rgba, RgbaImage};
 use jni::objects::{JByteArray, JClass};
 use jni::sys::{jbyteArray, jstring};
 use jni::JNIEnv;
+use matroska_demuxer::MatroskaFile;
 use rasterlottie::{Animation, RenderConfig, Renderer, Rgba8, SupportProfile};
+use rusty_vp9::Vp9Decoder;
 use std::io::{Cursor, Read};
 use webp_animation::{Encoder, EncoderOptions, EncodingConfig};
 
@@ -73,11 +75,7 @@ pub extern "system" fn Java_com_gunjan_stickpick_conversion_RustEngine_createTra
 }
 
 /// Converts a Telegram .tgs sticker (gzipped Lottie JSON) to an animated WebP
-/// strictly complying with WhatsApp Sticker API specifications:
-/// - Exactly 512x512 transparent canvas
-/// - Loop count = 0 (infinite loop)
-/// - Capped at max 3.0 seconds duration
-/// - File size strictly <= 500 KB
+/// strictly complying with WhatsApp Sticker API specifications.
 #[no_mangle]
 pub extern "system" fn Java_com_gunjan_stickpick_conversion_RustEngine_convertTgs(
     env: JNIEnv,
@@ -98,11 +96,184 @@ pub extern "system" fn Java_com_gunjan_stickpick_conversion_RustEngine_convertTg
     }
 }
 
-fn process_tgs(input: &[u8]) -> Result<Vec<u8>, String> {
-    // 1. Decompress .tgs (gzip) to JSON string
-    let json_str = decompress_tgs(input)?;
+/// Converts a Telegram .webm (VP9) video sticker to an animated WebP
+/// strictly complying with WhatsApp Sticker API specifications:
+/// - Exactly 512x512 transparent canvas
+/// - Loop count = 0 (infinite loop)
+/// - Capped at max 3.0 seconds duration
+/// - File size strictly <= 500 KB
+#[no_mangle]
+pub extern "system" fn Java_com_gunjan_stickpick_conversion_RustEngine_convertWebm(
+    env: JNIEnv,
+    _class: JClass,
+    input_bytes: JByteArray,
+) -> jbyteArray {
+    let raw_bytes = match env.convert_byte_array(&input_bytes) {
+        Ok(b) => b,
+        Err(_) => return std::ptr::null_mut(),
+    };
 
-    // 2. Parse Lottie animation
+    match process_webm(&raw_bytes) {
+        Ok(webp_bytes) => match env.byte_array_from_slice(&webp_bytes) {
+            Ok(jarr) => jarr.into_raw(),
+            Err(_) => std::ptr::null_mut(),
+        },
+        Err(_) => std::ptr::null_mut(),
+    }
+}
+
+fn process_webm(input: &[u8]) -> Result<Vec<u8>, String> {
+    let cursor = Cursor::new(input);
+    let mut mkv = MatroskaFile::open(cursor).map_err(|e| format!("Matroska open: {e}"))?;
+
+    // Find first video track
+    let video_track = mkv
+        .tracks()
+        .iter()
+        .find(|t| t.track_type() == matroska_demuxer::TrackType::Video)
+        .ok_or("No video track found")?;
+    let video_track_num = video_track.track_number();
+
+    let mut decoder = Vp9Decoder::new();
+    let mut mkv_frame = matroska_demuxer::Frame::default();
+    let mut rgba_frames: Vec<RgbaImage> = Vec::new();
+
+    let target_fps = 15.0f32;
+    let frame_duration_ms = (1000.0 / target_fps).round() as i32;
+    let max_frames = 45; // 3 seconds at 15 fps max for WhatsApp
+
+    while mkv.next_frame(&mut mkv_frame).unwrap_or(false) {
+        if mkv_frame.track == video_track_num.get() {
+            let pts = Some(mkv_frame.timestamp as i64);
+            let _ = decoder.push(&mkv_frame.data, pts);
+
+            while let Ok(decoded) = decoder.next_frame() {
+                let img = yuv420_to_rgba(&decoded);
+                let padded = pad_and_center_512(&img);
+                rgba_frames.push(padded);
+                if rgba_frames.len() >= max_frames {
+                    break;
+                }
+            }
+            if rgba_frames.len() >= max_frames {
+                break;
+            }
+        }
+    }
+
+    decoder.flush();
+    while let Ok(decoded) = decoder.next_frame() {
+        if rgba_frames.len() >= max_frames {
+            break;
+        }
+        let img = yuv420_to_rgba(&decoded);
+        let padded = pad_and_center_512(&img);
+        rgba_frames.push(padded);
+    }
+
+    if rgba_frames.is_empty() {
+        return Err("No frames decoded from WebM".into());
+    }
+
+    // Encode to animated WebP with adaptive quality loop (<= 500 KB limit)
+    encode_animated_webp(&rgba_frames, frame_duration_ms)
+}
+
+fn yuv420_to_rgba(frame: &rusty_vp9::DecodedFrame) -> RgbaImage {
+    let w = frame.width as usize;
+    let h = frame.height as usize;
+    let mut img = RgbaImage::new(frame.width, frame.height);
+
+    if frame.planes.len() < 3 {
+        return img;
+    }
+
+    let y_plane = &frame.planes[0];
+    let u_plane = &frame.planes[1];
+    let v_plane = &frame.planes[2];
+    let y_stride = frame.strides[0];
+    let u_stride = frame.strides[1];
+    let v_stride = frame.strides[2];
+
+    for y in 0..h {
+        let uv_y = y >> frame.subsampling_y;
+        for x in 0..w {
+            let uv_x = x >> frame.subsampling_x;
+
+            let y_val = y_plane.get(y * y_stride + x).copied().unwrap_or(0) as f32;
+            let u_val = u_plane.get(uv_y * u_stride + uv_x).copied().unwrap_or(128) as f32 - 128.0;
+            let v_val = v_plane.get(uv_y * v_stride + uv_x).copied().unwrap_or(128) as f32 - 128.0;
+
+            let r = (y_val + 1.402 * v_val).clamp(0.0, 255.0) as u8;
+            let g = (y_val - 0.344136 * u_val - 0.714136 * v_val).clamp(0.0, 255.0) as u8;
+            let b = (y_val + 1.772 * u_val).clamp(0.0, 255.0) as u8;
+
+            img.put_pixel(x as u32, y as u32, Rgba([r, g, b, 255]));
+        }
+    }
+
+    img
+}
+
+fn pad_and_center_512(img: &RgbaImage) -> RgbaImage {
+    let (orig_w, orig_h) = (img.width(), img.height());
+    let scale = (WHATSAPP_STICKER_SIZE as f32 / orig_w as f32)
+        .min(WHATSAPP_STICKER_SIZE as f32 / orig_h as f32);
+    let new_w = ((orig_w as f32 * scale).round() as u32).clamp(1, WHATSAPP_STICKER_SIZE);
+    let new_h = ((orig_h as f32 * scale).round() as u32).clamp(1, WHATSAPP_STICKER_SIZE);
+
+    let resized = image::imageops::resize(img, new_w, new_h, FilterType::Triangle);
+    let mut canvas = RgbaImage::from_pixel(
+        WHATSAPP_STICKER_SIZE,
+        WHATSAPP_STICKER_SIZE,
+        Rgba([0, 0, 0, 0]),
+    );
+
+    let offset_x = (WHATSAPP_STICKER_SIZE - new_w) / 2;
+    let offset_y = (WHATSAPP_STICKER_SIZE - new_h) / 2;
+    let _ = canvas.copy_from(&resized, offset_x, offset_y);
+
+    canvas
+}
+
+fn encode_animated_webp(frames: &[RgbaImage], frame_duration_ms: i32) -> Result<Vec<u8>, String> {
+    let mut quality = 65.0f32;
+    loop {
+        let mut options = EncoderOptions::default();
+        options.anim_params.loop_count = 0; // Infinite loop (mandated by WhatsApp)
+
+        let mut encoder = Encoder::new_with_options(
+            (WHATSAPP_STICKER_SIZE, WHATSAPP_STICKER_SIZE),
+            options,
+        )
+        .map_err(|e| format!("Encoder: {e}"))?;
+
+        let config = EncodingConfig::new_lossy(quality);
+        let _ = encoder.set_default_encoding_config(config);
+
+        let mut current_timestamp = 0;
+        for frame in frames {
+            encoder
+                .add_frame(frame.as_raw(), current_timestamp)
+                .map_err(|e| format!("Add frame: {e}"))?;
+            current_timestamp += frame_duration_ms;
+        }
+
+        let webp_data = encoder
+            .finalize(current_timestamp)
+            .map_err(|e| format!("Finalize: {e}"))?;
+        let bytes = webp_data.to_vec();
+
+        if bytes.len() <= MAX_ANIMATED_BYTES || quality <= 20.0 {
+            return Ok(bytes);
+        }
+
+        quality -= 15.0;
+    }
+}
+
+fn process_tgs(input: &[u8]) -> Result<Vec<u8>, String> {
+    let json_str = decompress_tgs(input)?;
     let anim = Animation::from_json_str(&json_str).map_err(|e| format!("Lottie parse: {e}"))?;
 
     let orig_w = anim.width as f32;
@@ -111,15 +282,13 @@ fn process_tgs(input: &[u8]) -> Result<Vec<u8>, String> {
         return Err("Invalid animation dimensions".into());
     }
 
-    // WhatsApp constraints: 512x512 canvas, duration <= 3.0s, fps typically 15
     let scale = (WHATSAPP_STICKER_SIZE as f32 / orig_w).min(WHATSAPP_STICKER_SIZE as f32 / orig_h);
     let duration_sec = anim.duration_seconds().min(3.0);
-    let target_fps = 15.0f32; // 15 fps gives smooth animation and stays well under 500KB
+    let target_fps = 15.0f32;
     let total_frames = ((duration_sec * target_fps).round() as usize).max(3);
     let frame_step = (anim.out_point - anim.in_point) / (total_frames as f32);
     let frame_duration_ms = (1000.0 / target_fps).round() as i32;
 
-    // Renderer setup with transparent background
     let renderer = Renderer::new(SupportProfile::target_corpus());
     let config = RenderConfig::new(Rgba8::new(0, 0, 0, 0), scale);
 
@@ -128,7 +297,6 @@ fn process_tgs(input: &[u8]) -> Result<Vec<u8>, String> {
     let offset_x = (WHATSAPP_STICKER_SIZE - scaled_w) / 2;
     let offset_y = (WHATSAPP_STICKER_SIZE - scaled_h) / 2;
 
-    // 3. Render all frames into 512x512 transparent canvases
     let mut frames: Vec<RgbaImage> = Vec::with_capacity(total_frames);
 
     for i in 0..total_frames {
@@ -155,51 +323,16 @@ fn process_tgs(input: &[u8]) -> Result<Vec<u8>, String> {
         frames.push(canvas);
     }
 
-    // 4. Encode to Animated WebP with adaptive quality loop to stay under 500 KB
-    let mut quality = 65.0f32;
-    loop {
-        let mut options = EncoderOptions::default();
-        options.anim_params.loop_count = 0; // Infinite loop (required by WhatsApp)
-
-        let mut encoder = Encoder::new_with_options(
-            (WHATSAPP_STICKER_SIZE, WHATSAPP_STICKER_SIZE),
-            options,
-        )
-        .map_err(|e| format!("Encoder: {e}"))?;
-
-        let config = EncodingConfig::new_lossy(quality);
-        let _ = encoder.set_default_encoding_config(config);
-
-        let mut current_timestamp = 0;
-        for frame in &frames {
-            encoder
-                .add_frame(frame.as_raw(), current_timestamp)
-                .map_err(|e| format!("Add frame: {e}"))?;
-            current_timestamp += frame_duration_ms;
-        }
-
-        let webp_data = encoder
-            .finalize(current_timestamp)
-            .map_err(|e| format!("Finalize: {e}"))?;
-        let bytes = webp_data.to_vec();
-
-        if bytes.len() <= MAX_ANIMATED_BYTES || quality <= 20.0 {
-            return Ok(bytes);
-        }
-
-        quality -= 15.0;
-    }
+    encode_animated_webp(&frames, frame_duration_ms)
 }
 
 fn decompress_tgs(input: &[u8]) -> Result<String, String> {
-    // If input already starts with '{', it's uncompressed JSON
     if let Ok(s) = std::str::from_utf8(input) {
         if s.trim_start().starts_with('{') {
             return Ok(s.to_string());
         }
     }
 
-    // Otherwise decompress via GzDecoder
     let mut decoder = GzDecoder::new(input);
     let mut decompressed = String::new();
     decoder
@@ -224,25 +357,19 @@ fn process_static_image(
         return Err("Empty image dimensions".into());
     }
 
-    // Compute aspect ratio scale to fit within target canvas
     let scale = (target_canvas as f32 / orig_w as f32).min(target_canvas as f32 / orig_h as f32);
     let new_w = ((orig_w as f32 * scale).round() as u32).clamp(1, target_canvas);
     let new_h = ((orig_h as f32 * scale).round() as u32).clamp(1, target_canvas);
 
-    // High quality downscaling/upscaling using Lanczos3
     let resized = img.resize_exact(new_w, new_h, FilterType::Lanczos3);
 
-    // Create target_canvas x target_canvas transparent canvas
     let mut canvas = RgbaImage::from_pixel(target_canvas, target_canvas, Rgba([0, 0, 0, 0]));
-
-    // Center the resized image onto the transparent canvas
     let offset_x = (target_canvas - new_w) / 2;
     let offset_y = (target_canvas - new_h) / 2;
     canvas
         .copy_from(&resized.to_rgba8(), offset_x, offset_y)
         .map_err(|e| e.to_string())?;
 
-    // Adaptive compression loop to guarantee file size constraint
     let mut quality: f32 = 85.0;
     loop {
         let encoder = webp::Encoder::from_rgba(

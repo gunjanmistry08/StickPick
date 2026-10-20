@@ -13,6 +13,8 @@ webp = { version = "0.3", default-features = false }
 webp-animation = { version = "0.10", default-features = false }
 flate2 = { version = "1.0", default-features = false, features = ["miniz_oxide"] }
 rasterlottie = { version = "0.2", default-features = false }
+matroska-demuxer = { version = "0.8", default-features = false }
+rusty_vp9 = { version = "0.1", default-features = false }
 
 [profile.release]
 opt-level = "s"      # Optimize for size
