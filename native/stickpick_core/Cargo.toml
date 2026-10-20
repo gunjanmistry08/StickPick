@@ -8,3 +8,11 @@ crate-type = ["cdylib"]
 
 [dependencies]
 jni = { version = "0.21", default-features = false }
+
+[profile.release]
+opt-level = "s"      # Optimize for size
+lto = "fat"          # Full Link Time Optimization across crates
+codegen-units = 1    # Maximize optimization & LTO effectiveness
+strip = true         # Automatically strip symbols from the binary
+panic = "abort"      # Remove panic unwinding tables to shrink binary
+
