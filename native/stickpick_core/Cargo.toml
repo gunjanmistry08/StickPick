@@ -8,6 +8,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 jni = { version = "0.21", default-features = false }
+image = { version = "0.25", default-features = false, features = ["webp", "png", "jpeg"] }
+webp = { version = "0.3", default-features = false }
 
 [profile.release]
 opt-level = "s"      # Optimize for size
