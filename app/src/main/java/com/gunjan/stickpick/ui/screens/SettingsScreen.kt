@@ -201,12 +201,6 @@ fun SettingsScreen(vm: MainViewModel, onBack: () -> Unit, onNavigate: (String) -
             ) {
                 Text("StickPick v1.0", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Built with ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                    Text("❤️", fontSize = 12.sp)
-                    Text(" by Avishkar Patil", style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
             }
 
             Spacer(Modifier.height(80.dp))

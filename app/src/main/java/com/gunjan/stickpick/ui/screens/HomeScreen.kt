@@ -148,15 +148,6 @@ fun HomeScreen(
 
             Spacer(Modifier.weight(1f))
 
-            // Credit
-            Text(
-                "Built with ❤\uFE0F by Avishkar Patil",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.outline.copy(0.4f),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
-            )
-
             Spacer(Modifier.height(90.dp))
             }
 
