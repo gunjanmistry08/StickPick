@@ -10,6 +10,9 @@ crate-type = ["cdylib"]
 jni = { version = "0.21", default-features = false }
 image = { version = "0.25", default-features = false, features = ["webp", "png", "jpeg"] }
 webp = { version = "0.3", default-features = false }
+webp-animation = { version = "0.10", default-features = false }
+flate2 = { version = "1.0", default-features = false, features = ["miniz_oxide"] }
+rasterlottie = { version = "0.2", default-features = false }
 
 [profile.release]
 opt-level = "s"      # Optimize for size
