@@ -4,10 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
-import android.graphics.Color
 import android.media.MediaMetadataRetriever
 import android.os.Build
-import com.antonkarpenko.ffmpegkit.FFmpegKit
 import com.gunjan.stickpick.data.local.PackStorage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -21,12 +19,12 @@ class ConversionEngine(context: Context) {
     private val storage = PackStorage(context)
 
     /**
-     * Converts a sticker file. For .webm/.mp4:
-     * 1. Try animated WebP via FFmpeg
-     * 2. If fails → try static WebP from extracted frame
-     * 3. If both fail → skip (Result.failure)
-     *
-     * Returns ConversionResult with isAnimated flag so pack can be built correctly.
+     * Converts a sticker file into a WhatsApp-compliant 512x512 WebP sticker.
+     * Uses Rust native engine (stickpick_core) for high speed, low memory, and minimal binary size:
+     * - .tgs (Lottie) -> Animated WebP (Rust Engine)
+     * - .webm (VP9) -> Animated WebP (Rust Engine)
+     * - .webp / .png / .jpg -> Static WebP (Rust Engine)
+     * - Fallback to Android Framework Bitmap/MediaMetadataRetriever if needed.
      */
     suspend fun convertSticker(
         inputFile: File,
@@ -38,62 +36,49 @@ class ConversionEngine(context: Context) {
             val outputFile = File(outDir, "$outputName.webp")
             outputFile.delete()
 
-            when (inputFile.extension.lowercase()) {
+            when (val ext = inputFile.extension.lowercase()) {
+                "tgs" -> {
+                    if (RustEngine.convertTgsFile(inputFile, outputFile) && isAnimatedWebp(outputFile)) {
+                        return@withContext Result.success(ConversionResult(outputFile, true))
+                    }
+                    outputFile.delete()
+                    return@withContext Result.failure(Exception("Cannot convert TGS: ${inputFile.name}"))
+                }
+
                 "webm", "mp4" -> {
-                    // Try 1: Animated WebP via FFmpeg
-                    if (convertVideoViaFFmpeg(inputFile, outputFile) && isAnimatedWebp(outputFile)) {
+                    // 1. Primary: Animated WebP via Rust VP9 engine (for .webm)
+                    if (ext == "webm" && RustEngine.convertWebmFile(inputFile, outputFile) && isAnimatedWebp(outputFile)) {
                         return@withContext Result.success(ConversionResult(outputFile, true))
                     }
 
-                    // Try 2: Static WebP from extracted frame
+                    // 2. Fallback: Extract first frame to static WebP via Android MediaMetadataRetriever
                     outputFile.delete()
                     if (convertVideoFrameToStatic(inputFile, outputFile)) {
                         return@withContext Result.success(ConversionResult(outputFile, false))
                     }
 
-                    // Both failed — skip
                     outputFile.delete()
-                    return@withContext Result.failure(Exception("Cannot convert: ${inputFile.name}"))
+                    return@withContext Result.failure(Exception("Cannot convert video: ${inputFile.name}"))
                 }
+
                 else -> {
-                    convertImage(inputFile, outputFile)
+                    // Primary: Fast Rust static conversion (512x512 transparent pad, quality tuned)
+                    if (RustEngine.convertStaticFile(inputFile, outputFile) && outputFile.exists() && outputFile.length() > 100) {
+                        return@withContext Result.success(ConversionResult(outputFile, false))
+                    }
+
+                    // Fallback: Android Bitmap decoder
+                    convertImageFallback(inputFile, outputFile)
                     if (outputFile.exists() && outputFile.length() > 100) {
                         return@withContext Result.success(ConversionResult(outputFile, false))
                     }
+
                     return@withContext Result.failure(Exception("Cannot convert: ${inputFile.name}"))
                 }
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
-    }
-
-    private fun convertVideoViaFFmpeg(input: File, output: File): Boolean {
-        // Note: color=0x00000000 = fully transparent padding
-        val commands = listOf(
-            "-y -i \"${input.absolutePath}\" " +
-                    "-vf \"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,fps=10\" " +
-                    "-t 3 -an -loop 0 -quality 50 -compression_level 4 -vcodec libwebp_anim " +
-                    "\"${output.absolutePath}\"",
-            "-y -i \"${input.absolutePath}\" " +
-                    "-vf \"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,fps=10\" " +
-                    "-t 3 -an -loop 0 -quality 50 " +
-                    "\"${output.absolutePath}\"",
-            "-y -i \"${input.absolutePath}\" " +
-                    "-vf \"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,fps=5\" " +
-                    "-t 2 -an -loop 0 -quality 30 " +
-                    "\"${output.absolutePath}\""
-        )
-
-        for (cmd in commands) {
-            output.delete()
-            FFmpegKit.execute(cmd)
-            if (output.exists() && output.length() > 200) {
-                if (output.length() > 500_000) shrinkAnimated(input, output)
-                return true
-            }
-        }
-        return false
     }
 
     private fun convertVideoFrameToStatic(input: File, output: File): Boolean {
@@ -137,30 +122,12 @@ class ConversionEngine(context: Context) {
         }
     }
 
-    private fun shrinkAnimated(input: File, output: File) {
-        val cmd = "-y -i \"${input.absolutePath}\" " +
-                "-vf \"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000,fps=8\" " +
-                "-t 2 -an -loop 0 -quality 25 -compression_level 6 " +
-                "\"${output.absolutePath}\""
-        FFmpegKit.execute(cmd)
-    }
-
-    private fun convertImage(input: File, output: File) {
-        // If input is already webp, try direct resize via Bitmap first (preserves quality)
-        val bitmap = BitmapFactory.decodeFile(input.absolutePath)
-        if (bitmap != null) {
-            val scaled = scaleTo512Transparent(bitmap)
-            writeWebp(scaled, output)
-            if (scaled !== bitmap) scaled.recycle()
-            bitmap.recycle()
-            if (output.exists() && output.length() > 100) return
-        }
-
-        // Fallback to FFmpeg
-        val cmd = "-y -i \"${input.absolutePath}\" " +
-                "-vf \"scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0x00000000\" " +
-                "-quality 80 \"${output.absolutePath}\""
-        FFmpegKit.execute(cmd)
+    private fun convertImageFallback(input: File, output: File) {
+        val bitmap = BitmapFactory.decodeFile(input.absolutePath) ?: return
+        val scaled = scaleTo512Transparent(bitmap)
+        writeWebp(scaled, output)
+        if (scaled !== bitmap) scaled.recycle()
+        bitmap.recycle()
     }
 
     private fun scaleTo512Transparent(bitmap: Bitmap): Bitmap {
@@ -169,7 +136,6 @@ class ConversionEngine(context: Context) {
         val newW = (bitmap.width * ratio).toInt().coerceAtLeast(1)
         val newH = (bitmap.height * ratio).toInt().coerceAtLeast(1)
         val result = Bitmap.createBitmap(maxSize, maxSize, Bitmap.Config.ARGB_8888)
-        // Transparent background — no drawColor needed, ARGB_8888 defaults to transparent
         val canvas = Canvas(result)
         val scaled = Bitmap.createScaledBitmap(bitmap, newW, newH, true)
         canvas.drawBitmap(scaled, (maxSize - newW) / 2f, (maxSize - newH) / 2f, null)
@@ -192,6 +158,13 @@ class ConversionEngine(context: Context) {
         try {
             val outDir = storage.getConvertedDir(packId)
             val trayFile = File(outDir, "tray_${packId}.png")
+
+            // 1. Primary: Rust tray generator (<= 50 KB compliant)
+            if (RustEngine.createTrayIconFile(inputFile, trayFile) && trayFile.exists() && trayFile.length() > 50) {
+                return@withContext Result.success(trayFile)
+            }
+
+            // 2. Fallback: Android framework
             val bitmap = when (inputFile.extension.lowercase()) {
                 "webm", "mp4" -> {
                     val r = MediaMetadataRetriever()
@@ -201,6 +174,7 @@ class ConversionEngine(context: Context) {
                 }
                 else -> BitmapFactory.decodeFile(inputFile.absolutePath)
             } ?: throw Exception("Cannot decode tray source")
+
             val scaled = Bitmap.createScaledBitmap(bitmap, 96, 96, true)
             FileOutputStream(trayFile).use { scaled.compress(Bitmap.CompressFormat.PNG, 100, it) }
             if (scaled !== bitmap) scaled.recycle()

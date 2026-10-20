@@ -28,7 +28,6 @@ android {
         }
     }
 
-    // Only include arm64 — covers 95%+ of real devices, drops x86/x86_64 emulator libs
     defaultConfig {
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
@@ -64,7 +63,6 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.coil.gif)
     implementation(libs.gson)
-    implementation("com.antonkarpenko:ffmpeg-kit-video:2.1.0")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

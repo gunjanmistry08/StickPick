@@ -388,3 +388,7 @@ fn process_static_image(
         quality -= 15.0;
     }
 }
+
+#[cfg(test)]
+mod tests;
+

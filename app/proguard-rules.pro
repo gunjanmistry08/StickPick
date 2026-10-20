@@ -1,15 +1,9 @@
--keep class com.antonkarpenko.ffmpegkit.** { *; }
--keep class com.google.gson.** { *; }
+# Keep data models serialized by Gson
 -keep class com.gunjan.stickpick.data.model.** { *; }
 -keep class com.gunjan.stickpick.whatsapp.** { *; }
--keepattributes Signature
--keepattributes *Annotation*
--dontwarn okhttp3.**
--dontwarn retrofit2.**
--keep class retrofit2.** { *; }
--keep class okhttp3.** { *; }
--dontwarn com.antonkarpenko.**
--dontwarn javax.annotation.**
--keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
--keep,allowobfuscation,allowshrinking interface retrofit2.Call
--keep,allowobfuscation,allowshrinking class retrofit2.Response
+-keep class com.gunjan.stickpick.conversion.** { *; }
+
+# Keep native JNI methods
+-keepclasseswithmembernames class * {
+    native <methods>;
+}
