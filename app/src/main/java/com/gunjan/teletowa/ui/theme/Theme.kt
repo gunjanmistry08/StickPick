@@ -1,4 +1,4 @@
-package com.gunjan.stickpick.ui.theme
+package com.gunjan.teletowa.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -11,7 +11,7 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.gunjan.stickpick.R
+import com.gunjan.teletowa.R
 
 val Poppins = FontFamily(
     Font(R.font.poppins_regular, FontWeight.Normal),
@@ -71,7 +71,7 @@ val AppTypography = Typography(
 )
 
 @Composable
-fun StickPickTheme(
+fun TeleToWATheme(
     themeMode: String = "system",
     content: @Composable () -> Unit
 ) {
