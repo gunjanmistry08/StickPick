@@ -4,11 +4,11 @@ plugins {
 }
 
 android {
-    namespace = "com.gunjan.stickpick"
+    namespace = "com.gunjan.teletowa"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.gunjan.stickpick"
+        applicationId = "com.gunjan.teletowa"
         minSdk = 26
         targetSdk = 36
         versionCode = 1

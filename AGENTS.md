@@ -1,12 +1,12 @@
-# AGENTS.md — StickPick Guidelines & Architecture
+# AGENTS.md — TeleToWA Guidelines & Architecture
 
-Welcome to **StickPick**! This document provides AI coding agents and developers with essential context, architectural structure, development conventions, and operational workflows for this repository.
+Welcome to **TeleToWA**! This document provides AI coding agents and developers with essential context, architectural structure, development conventions, and operational workflows for this repository.
 
 ---
 
 ## 1. Project Overview
 
-StickPick is a modern Android application built using Jetpack Compose that allows users to:
+TeleToWA is a modern Android application built using Jetpack Compose that allows users to:
 1. Fetch Telegram sticker packs using Telegram Bot API.
 2. Download static (`.webp`) and animated/video (`.webm`, `.mp4`) stickers.
 3. Convert video/animated stickers to WhatsApp-compatible animated/static WebP using FFmpeg.
@@ -32,7 +32,7 @@ StickPick is a modern Android application built using Jetpack Compose that allow
 ## 3. Repository Structure & Key Packages
 
 ```
-StickPick/
+TeleToWA/
 ├── app/
 │   ├── build.gradle.kts                   # App-level dependencies & NK/ABI configurations
 │   └── src/main/
