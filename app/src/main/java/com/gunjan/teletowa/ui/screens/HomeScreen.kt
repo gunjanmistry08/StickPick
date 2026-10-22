@@ -104,11 +104,11 @@ fun HomeScreen(
                         Column {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    "StickerForge",
+                                    "TeleToWA",
                                     fontFamily = Poppins,
                                     fontSize = 26.sp,
                                     fontWeight = FontWeight.Black,
-                                    color = Color(0xFFECEEF6),
+                                    color = MaterialTheme.colorScheme.onBackground,
                                     letterSpacing = (-0.5).sp
                                 )
                                 Spacer(Modifier.width(4.dp))
@@ -587,12 +587,22 @@ fun GlassBottomNav(currentRoute: String, onNavigate: (String) -> Unit, modifier:
             .fillMaxWidth()
             .padding(horizontal = 30.dp, vertical = 20.dp)
     ) {
+        val isDark = MaterialTheme.colorScheme.background.red < 0.5f
+        val navBg = if (isDark) Color(0xEE101422) else Color(0xEEFFFFFF)
+        val navBorder = if (isDark) {
+            NeoGlassStyle.GlassCardBorder
+        } else {
+            Brush.verticalGradient(
+                colors = listOf(Color(0x306C3CE9), Color(0x2000897B), Color(0x15000000))
+            )
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(32.dp))
-                .background(Color(0xEE101422))
-                .border(1.dp, NeoGlassStyle.GlassCardBorder, RoundedCornerShape(32.dp))
+                .background(navBg)
+                .border(1.dp, navBorder, RoundedCornerShape(32.dp))
                 .padding(horizontal = 8.dp, vertical = 6.dp)
         ) {
             Row(

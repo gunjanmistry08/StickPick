@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,11 +48,21 @@ fun NeoGlassCard(
     borderWidth: Dp = 1.dp,
     content: @Composable () -> Unit
 ) {
+    val isDark = MaterialTheme.colorScheme.background.red < 0.5f
+    val bg = if (isDark) Color(0x1F1E263E) else Color(0x99FFFFFF)
+    val borderBrush = if (isDark) {
+        NeoGlassStyle.GlassCardBorder
+    } else {
+        Brush.verticalGradient(
+            colors = listOf(Color(0x306C3CE9), Color(0x2000897B), Color(0x20000000))
+        )
+    }
+
     Box(
         modifier = modifier
             .clip(shape)
-            .background(Color(0x1F1E263E))
-            .border(borderWidth, NeoGlassStyle.GlassCardBorder, shape)
+            .background(bg)
+            .border(borderWidth, borderBrush, shape)
     ) {
         content()
     }

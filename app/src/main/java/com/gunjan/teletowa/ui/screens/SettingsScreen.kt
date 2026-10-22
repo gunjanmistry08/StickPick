@@ -455,14 +455,19 @@ private fun RowScope.ThemeChip(
     icon: ImageVector,
     onClick: () -> Unit
 ) {
+    val activeColor = MaterialTheme.colorScheme.primary
+    val activeTint = if (MaterialTheme.colorScheme.background.red < 0.5f) Color(0xFF00E5CC) else MaterialTheme.colorScheme.primary
+    val inactiveBg = if (MaterialTheme.colorScheme.background.red < 0.5f) Color(0x18101422) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    val activeBg = activeColor.copy(alpha = 0.18f)
+
     Box(
         modifier = Modifier
             .weight(1f)
             .clip(RoundedCornerShape(16.dp))
-            .background(if (selected) Color(0x338B5CF6) else Color(0x18101422))
+            .background(if (selected) activeBg else inactiveBg)
             .border(
-                1.dp,
-                if (selected) Color(0xFF8B5CF6) else Color(0x228B5CF6),
+                if (selected) 1.5.dp else 1.dp,
+                if (selected) activeColor else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
                 RoundedCornerShape(16.dp)
             )
     ) {
@@ -478,7 +483,7 @@ private fun RowScope.ThemeChip(
                 Icon(
                     icon,
                     contentDescription = label,
-                    tint = if (selected) Color(0xFF00E5CC) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = if (selected) activeTint else MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(22.dp)
                 )
                 Spacer(Modifier.height(6.dp))
@@ -487,7 +492,7 @@ private fun RowScope.ThemeChip(
                     fontFamily = Poppins,
                     fontSize = 12.sp,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                    color = if (selected) Color(0xFF00E5CC) else MaterialTheme.colorScheme.onSurfaceVariant
+                    color = if (selected) activeTint else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }

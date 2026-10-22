@@ -7,43 +7,43 @@ import androidx.compose.ui.graphics.Color
 // Electric Violet & Neon Cyan Accent System
 // ==========================================
 
-// Light Mode (Crisp Glass & Electric Accents)
+// Light Mode (Crisp Neo-Glass & Light Slate Base)
 val Primary = Color(0xFF6C3CE9)          // Vibrant Electric Violet
 val PrimaryDim = Color(0xFF572DC7)
-val PrimaryContainer = Color(0xFF8F63FF)
+val PrimaryContainer = Color(0xFFEDE7F6)
 val PrimaryFixedDim = Color(0xFF7A4AEB)
 val OnPrimary = Color(0xFFFFFFFF)
-val OnPrimaryContainer = Color(0xFFFFFFFF)
+val OnPrimaryContainer = Color(0xFF2E0854)
 
-val Secondary = Color(0xFF00C9B7)        // Neon Cyan / Mint
-val SecondaryContainer = Color(0xFFCEFAF4)
-val OnSecondary = Color(0xFF022B28)
-val OnSecondaryContainer = Color(0xFF004D46)
+val Secondary = Color(0xFF00897B)        // Deep Cyan / Teal for high contrast
+val SecondaryContainer = Color(0xFFE0F2F1)
+val OnSecondary = Color(0xFFFFFFFF)
+val OnSecondaryContainer = Color(0xFF004D40)
 
-val Tertiary = Color(0xFFFF4081)         // Electric Magenta Accent
-val TertiaryContainer = Color(0xFFFFD9E4)
+val Tertiary = Color(0xFFD81B60)         // Electric Magenta Accent
+val TertiaryContainer = Color(0xFFFCE4EC)
 val OnTertiary = Color(0xFFFFFFFF)
 
-val Error = Color(0xFFFF3366)
-val ErrorContainer = Color(0xFFFFD9E2)
+val Error = Color(0xFFD32F2F)
+val ErrorContainer = Color(0xFFFFEBEE)
 val OnError = Color(0xFFFFFFFF)
-val OnErrorContainer = Color(0xFF5C001E)
+val OnErrorContainer = Color(0xFF7F0000)
 
-val Background = Color(0xFF0D0F18)       // Deep Obsidian base
-val OnBackground = Color(0xFFF1F3FA)
-val Surface = Color(0xFF131722)
-val OnSurface = Color(0xFFF3F5FC)
-val OnSurfaceVariant = Color(0xFFA1A7C4)
-val SurfaceVariant = Color(0xFF1E2336)
-val SurfaceContainerLowest = Color(0xFF0B0D15)
-val SurfaceContainerLow = Color(0xFF171C2B)
-val SurfaceContainer = Color(0xFF1E2437)
-val SurfaceContainerHigh = Color(0xFF262E45)
-val SurfaceContainerHighest = Color(0xFF303955)
-val Outline = Color(0xFF384366)
-val OutlineVariant = Color(0xFF252D45)
-val InverseSurface = Color(0xFFF1F3FA)
-val InversePrimary = Color(0xFF8F63FF)
+val Background = Color(0xFFF5F7FB)       // Clean Light Slate / Ice Blue
+val OnBackground = Color(0xFF131722)
+val Surface = Color(0xFFFFFFFF)
+val OnSurface = Color(0xFF131722)
+val OnSurfaceVariant = Color(0xFF5A6275)
+val SurfaceVariant = Color(0xFFE9ECF4)
+val SurfaceContainerLowest = Color(0xFFFFFFFF)
+val SurfaceContainerLow = Color(0xFFF0F3F9)
+val SurfaceContainer = Color(0xFFE8EDF5)
+val SurfaceContainerHigh = Color(0xFFDFE5EF)
+val SurfaceContainerHighest = Color(0xFFD5DCE8)
+val Outline = Color(0xFF8C96A8)
+val OutlineVariant = Color(0xFFCAD1DE)
+val InverseSurface = Color(0xFF131722)
+val InversePrimary = Color(0xFF8B5CF6)
 
 // Dark Mode (Deep Obsidian, Frosted Glass, Neon Glow)
 val DarkPrimary = Color(0xFF8B5CF6)       // Glowing Violet
